@@ -61,7 +61,7 @@ LXC sets up basic level 2 connectivity for its containers. As a convenience it a
 
 As a container connected to a bridge can transmit any level 2 traffic that it wishes, it can effectively do MAC or IP spoofing on the bridge.
 
-When running untrusted containers or when allowing untrusted users to run containers, one should ideally create one bridge per user or per group of untrusted containers and configure /etc/lxc/lxc-usernet such that users may only use the bridges that they have been allocated.
+When running untrusted containers or when allowing untrusted users to run containers, one should ideally create one bridge per user or per group of untrusted containers and configure `/etc/lxc/lxc-usernet` such that users may only use the bridges that they have been allocated.
 
 ### Securing IPv6 Router Advertisements acceptance
 
