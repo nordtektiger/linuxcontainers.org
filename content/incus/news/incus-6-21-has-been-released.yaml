@@ -1,0 +1,287 @@
+title: Incus 6.21 has been released
+date: 2026/01/23 22:01
+origin: https://discuss.linuxcontainers.org/t/incus-6-21-has-been-released/26005
+content: |-
+  # Introduction
+  The Incus team is pleased to announce the release of Incus 6.21!
+
+  We're starting 2026 with a couple of security fixes, but that's not all, we're also introducing some long requested CLI improvements, made SR-IOV easier to use with network cards, improved startup performance and more!
+
+  [![image|690x374](https://discuss.linuxcontainers.org/uploads/default/original/2X/6/649b4af30cdfa15f3b52b04248cf12a9cb9430e7.png)](https://linuxcontainers.org/incus/try-it/)
+
+  As usual, you can try it for yourself online: https://linuxcontainers.org/incus/try-it/
+
+  Enjoy!
+
+  # Security fixes
+  Rory McNamara from snyk.io reported two high severity security issues.
+
+  Both of those allow privilege escalation by an otherwise restricted Incus user such as a local user who's a member of the `incus` group, or a remote user who's using a restricted TLS client certificate or equivalent OpenFGA/scriptlet configuration.
+
+   - [CVE-2026-23953](https://github.com/advisories/GHSA-x6jc-phwx-hp32) (Newline injection in environment variable)
+   - [CVE-2026-23954](https://github.com/advisories/GHSA-7f67-crqm-jgh7) (Arbitrary file read/write through templates)
+
+  Both issues are fixed in this release, backports are available in the Incus 6.0.x branch and security updates are rolling out through the various Linux distributions.
+
+  # New features
+  ## `incus wait` command
+  A new `incus wait` command has been introduced which currently allows waiting for a few different things to happen to an Incus instance:
+
+   - The instance has reached a specified state
+   - The VM agent is ready
+   - The instance has acquired an IP address
+
+  This may get further expanded in the future to add additional common conditions.
+
+      stgraber@castiana:~$ incus launch images:debian/13 v1 --vm && incus wait v1 agent && incus exec v1 -- echo "Hello world"
+      Launching v1
+      Hello world
+
+  ## Automatic SR-IOV selection for network interfaces
+  SR-IOV network interfaces now benefit from the same dynamic selection logic as was introduced to GPUs some releases ago.
+
+  This allows adding SR-IOV network interfaces based on the manufacturer/model of the NIC, regardless of how many physical interfaces are present on the system with Incus attempting to pick the most optimal physical card based on the instance and balancing VFs between the various cards and ports.
+
+      stgraber@dakara:~$ incus create images:debian/13 sriov
+      Creating sriov
+      stgraber@dakara:~$ incus config device add sriov eth0 nic nictype=sriov vendorid=8086 productid=10fb
+      Device eth0 added to sriov
+      stgraber@dakara:~$ incus start sriov
+
+  Documentation: https://linuxcontainers.org/incus/docs/main/reference/devices_nic/#id2
+
+  ## `attached` and `connected` properties on network interfaces
+  Two new properties are now available for most NIC devices.
+
+   - `attached` controls whether the NIC is currently attached to the instance. Setting it to `false` is a way to retain the NIC configuration while having the device be completly absent from the instance.
+   - `connected` controls whether the network link is connected. Setting it to `false` will keep the network interface in the instance but it won't have any connectivity.
+
+  Here is an example of it in action:
+
+      stgraber@dakara:~$ incus launch images:debian/13 v1 --vm
+      Launching v1
+      stgraber@dakara:~$ incus exec v1 -- ping6 -n ipv6.google.com -c1
+      PING ipv6.google.com (2607:f8b0:4023:1804::71) 56 data bytes
+      64 bytes from 2607:f8b0:4023:1804::71: icmp_seq=1 ttl=113 time=14.2 ms
+      
+      --- ipv6.google.com ping statistics ---
+      1 packets transmitted, 1 received, 0% packet loss, time 0ms
+      rtt min/avg/max/mdev = 14.151/14.151/14.151/0.000 ms
+      stgraber@dakara:~$ incus config device override v1 eth0 connected=false
+      Device eth0 overridden for v1
+      stgraber@dakara:~$ incus exec v1 -- ping6 -n ipv6.google.com -c1
+      ping6: ipv6.google.com: Temporary failure in name resolution
+      stgraber@dakara:~$ incus config device set v1 eth0 connected=true
+      stgraber@dakara:~$ incus exec v1 -- ping6 -n ipv6.google.com -c1
+      PING ipv6.google.com (2607:f8b0:4023:1804::64) 56 data bytes
+      64 bytes from 2607:f8b0:4023:1804::64: icmp_seq=1 ttl=111 time=17.0 ms
+      
+      --- ipv6.google.com ping statistics ---
+      1 packets transmitted, 1 received, 0% packet loss, time 0ms
+      rtt min/avg/max/mdev = 16.960/16.960/16.960/0.000 ms
+      stgraber@dakara:~$ incus config device set v1 eth0 attached=false
+      stgraber@dakara:~$ incus exec v1 -- ip link
+      1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+          link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+
+  ## Parallel instance startup
+  Up until now all instances marked for auto-starting on system boot would be started sequentially, respecting the defined priority and delays.
+
+  To speed things up a bit on very large systems, Incus will now check each project's instance list and for any project where instances aren't using priority and delays, it will start the instances in parallel with 1 parallel instance per 4 CPU threads available on the system (so a system with 16 threads would have instances starting 4 at a time).
+
+  ## Network restrictions through OIDC claims
+  A new advanced option for those using OIDC authentication is a claim named `incus.allowed_subnets` which can contain a list of comma separated CIDR subnets that the client must be connecting from to be allowed to interact with the API.
+
+  This is particularly useful in environments where a specific group of users should always be connecting through a VPN or from a physical site. The IdP can be configured to set the claim when needed and Incus will take care of verifying it with every request.
+
+  Documentation: https://linuxcontainers.org/incus/docs/main/authentication/#openid-connect-authentication
+
+  ## Better support for the SOA in network zones
+  The generated DNS network zones now generate a more standard SOA record, including using the first configured DNS server as the primary DNS server as well as introducing a new `dns.contact` configuration option to customize the contact field in the zone.
+
+  Documentation: https://linuxcontainers.org/incus/docs/main/howto/network_zones/
+
+  ## Support for forceful (recursive) file deletion in API
+  Incus supports two different APIs for file access in instances and custom volumes.
+  Modern clients rely on our newer SFTP based API which allows a very wide variety of filesystem operations, while simpler and legacy clients use our basic REST API for file operations.
+
+  One feature easily available through SFTP but not through the REST API was the ability to force the deletion of a filesystem tree, effectively triggering recursive deletion.
+
+  To make it easier for those not using SFTP, we have now introduced a new `X-Incus-force` HTTP header for `DELETE` operations which will trigger recursion on the server side, similar to a `incus file delete -f` operation.
+
+  # Complete changelog
+
+  Here is a complete list of all changes in this release:
+
+  [details="Full commit list"]
+   - doc/openfga: Improve required config keys
+   - incusd/network/ovn: Drop now obsolete DNS check
+   - incusd/storage/truenas: fix SetVolumeQuota issue when growing FS volumes
+   - cmd/incus-user: Don't reset setup if user has access
+   - api: oidc_allowed_subnets
+   - incusd/auth/oidc: Introduce incus.restricted_subnets
+   - doc/authentication: Mentioned incus.allowed_subnets claim
+   - internal/instance: Tweak handling of boot.autostart
+   - doc: Update configs
+   - incusd/instances: Support last-state value for boot.autostart
+   - incusd/network/physical: Allow parent re-use for bridges
+   - Translated using Weblate (Italian)
+   - Translated using Weblate (Italian)
+   - Translated using Weblate (Swedish)
+   - Translated using Weblate (Swedish)
+   - Translated using Weblate (Tamil)
+   - Translated using Weblate (Dutch)
+   - Translated using Weblate (Dutch)
+   - Translated using Weblate (Chinese (Traditional Han script))
+   - Translated using Weblate (Chinese (Traditional Han script))
+   - Translated using Weblate (Spanish)
+   - Translated using Weblate (Spanish)
+   - Translated using Weblate (German)
+   - Translated using Weblate (German)
+   - Translated using Weblate (German)
+   - Translated using Weblate (German)
+   - Translated using Weblate (German)
+   - Translated using Weblate (Portuguese (Brazil))
+   - Translated using Weblate (Portuguese (Brazil))
+   - Translated using Weblate (French)
+   - Translated using Weblate (French)
+   - Translated using Weblate (French)
+   - Translated using Weblate (French)
+   - Translated using Weblate (French)
+   - Translated using Weblate (French)
+   - Translated using Weblate (French)
+   - Translated using Weblate (French)
+   - Translated using Weblate (Indonesian)
+   - Translated using Weblate (Indonesian)
+   - Translated using Weblate (Norwegian Bokmål)
+   - Translated using Weblate (Norwegian Bokmål)
+   - Translated using Weblate (Russian)
+   - Translated using Weblate (Portuguese)
+   - Translated using Weblate (Japanese)
+   - Translated using Weblate (Japanese)
+   - Translated using Weblate (Japanese)
+   - Translated using Weblate (Chinese (Simplified Han script))
+   - Translated using Weblate (Chinese (Simplified Han script))
+   - Translated using Weblate (Chinese (Simplified Han script))
+   - Translated using Weblate (Chinese (Simplified Han script))
+   - Translated using Weblate (Chinese (Simplified Han script))
+   - Translated using Weblate (Chinese (Simplified Han script))
+   - Translated using Weblate (Chinese (Simplified Han script))
+   - Translated using Weblate (Chinese (Simplified Han script))
+   - Translated using Weblate (Portuguese)
+   - incusd/network/physical: Allow vlan.tagged
+   - incusd/device: Add vlan.tagged to physical NICs
+   - doc: Update configs
+   - incusd/device/nic_physical: Fix internal bridge handling
+   - incusd: Add X-Incus-force header for file operations
+   - doc/rest-api: Refresh swagger YAML
+   - api: file_delete_force
+   - doc/network_ovn: Add note about advanced external_interfaces syntax
+   - incusd: Parallelize instance startup on daemon start
+   - incusd/instance/drivers: Add size parameter to UpdateBlockSize method
+   - incusd/storage/drivers: Export roundAbove function
+   - incusd/storage/drivers: Add Qcow2Resize and export isQcow2Block function
+   - Translated using Weblate (Swedish)
+   - incusd/storage: Add support for resizing qcow2 volumes
+   - generate-database: Respect "primary" config for Identifier in mappings
+   - Added a few more environment variables. PATHEXT and COMPUTERNAME were needed for 'shutdown.exe'. Meanwhile, I've connected as SYSTEM with PsExec to show the environment variables by default and added them.
+   - Add pires/go-proxyproto
+   - internal/server/endpoints/listeners: Use new proxyproto package
+   - generate-database: fix import type for association tables
+   - incusd/instance/drivers: Fix adding disk with a device name longer than 31 bytes
+   - incusd/instance/drivers: Add tests for hashName
+   - shared/validate: Don't allow $ in API names
+   - Translated using Weblate (Japanese)
+   - shared/util: Add SingleQuote
+   - incusd/instance/lxc: Use SingleQuote instead of Quote
+   - incusd/device/disk: Use isRequired
+   - incusd/device/disk: Move check for attached property
+   - incusd/device/disk: Handle required=false on custom volumes
+   - incusd/api_internal: Block instance hooks until daemon is ready
+   - incusd/instance_console: Align cleanup logic with exec
+   - incusd: pass firmware opt from device/pci to instance/qemu
+   - incusd/device: Move reusable code into getNumaNodeSet helper
+   - incusd/network: Add SRIOVCountFreeVirtualFunctions
+   - incusd/device: Add support for nic SR-IOV selection by vendorid, productid and pci
+   - doc: Update configs
+   - api: Add 'nic_sriov_select_ext' extension
+   - incusd/storage/drivers: Allow setting 'vg_name' for non-clustered LVM during init
+   - doc: Fix build failure
+   - incus: Implement "incus wait"
+   - i18n: Update translation templates
+   - internal/instance: Prevent line breaks in environment variables
+   - incusd/instance/drivers: Rename hashName to hashValue
+   - incusd/instance/drivers: Hash serial value if it exceeds the maximum length
+   - doc/linstor: Add documentation for `source` parameter.
+   - doc: Update configs
+   - incusd/network/bridge: Skip dnsmasq on non-routed IPv6
+   - Update Rocky Linux instructions
+   - incusd/network/zone: Use the standard SOA format
+   - incusd/network/zone: Allow setting DNS admin contact
+   - doc: Update configs
+   - api: network_zones_dns_contact
+   - Translated using Weblate (Portuguese)
+   - incusd/network: Remove automatic increasing of SR-IOV VF count
+   - doc: Add warning about long device names
+   - incusd/device/nic: Add `attached` configuration key
+   - incusd/device/nic: Add `connected` configuration key
+   - incusd/instance/qemu: Properly update detached devices
+   - incusd/instance/lxc: Properly update detached devices
+   - incusd/device/nic_ovn: Factor common options
+   - incusd/device/nic_p2p: Fix boot.priority spelling in gendoc
+   - incusd/instance/qemu: Implement NIC connected config key
+   - incusd/ip/link: Relax parent detection logic
+   - incusd/instance/lxc: Implement NIC connected config key
+   - api: nic_attached_connected
+   - doc: Update config
+   - incusd/instance/lxc: Restrict path of template files and targets
+   - tests: Add NIC tests for attached and connected keys
+   - Makefile: Bump to Go 1.24.12
+   - gomod: Update dependencies
+   - mini-oidc: Update for newer Zitadel
+   - incusd/cluster: Skip first re-balance
+   - incusd/auth/tls: Fix handling of GetPermissionChecker
+   - incusd/instance: Report clear error on concurent migrations
+  [/details]
+
+  # Documentation
+
+  The Incus documentation can be found at:
+
+  https://linuxcontainers.org/incus/docs/main/
+
+  # Packages
+
+  There are no official Incus packages as Incus upstream only releases regular release tarballs. Below are some available options to get Incus up and running.
+
+  ## Installing the Incus server on Linux
+
+  Incus is available for most common Linux distributions. You’ll find detailed installation instructions in our documentation.
+
+  https://linuxcontainers.org/incus/docs/main/installing/
+
+  ## Homebrew package for the Incus client
+
+  The client tool is available through HomeBrew for both Linux and MacOS.
+
+  https://formulae.brew.sh/formula/incus
+
+  ## Chocolatey package for the Incus client
+
+  The client tool is available through Chocolatey for Windows users.
+
+  https://community.chocolatey.org/packages/incus/6.21.0
+
+  ## Winget package for the Incus client
+
+  The client tool is also available through Winget for Windows users.
+
+  https://winstall.app/apps/LinuxContainers.Incus
+
+  # Support
+
+  Monthly feature releases are only supported up until the next release comes out.  Users needing a longer support length and less frequent changes should consider using Incus 6.0 LTS instead.
+
+  Community support is provided at: https://discuss.linuxcontainers.org
+  Commercial support is available through: https://zabbly.com/incus
+  Bugs can be reported at: https://github.com/lxc/incus/issues
