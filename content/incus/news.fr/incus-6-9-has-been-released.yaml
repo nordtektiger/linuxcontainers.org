@@ -140,9 +140,9 @@ content: |-
   It's now possible to define some initial storage volumes directly through the server preseed file.
   This can be useful to set up some shared volumes to be used by a profile that's also part of the preseed, or as a way to define volumes to be used for Incus images or backups storage.
   -->
-  ## Création de volumes de stockage depuis le fichier de preseed du serveur
-  Il est maintenant possible de définir des volumes de stockage initiaux directement dans le fichier de preseed du serveur.
-  Cette fonctionnalité est pratique pour notamment définir des volumes partagés et des profils qui les utilisent, le tout dans le fichier de preseed. Il est également possible de définir des volumes pour les images Incus ou le stockage des sauvegardes.
+  ## Création de volumes de stockage depuis le fichier de préconfiguration du serveur
+  Il est maintenant possible de définir des volumes de stockage initiaux directement dans le fichier de préconfiguration du serveur.
+  Cette fonctionnalité est pratique pour notamment définir des volumes partagés et des profils qui les utilisent, le tout dans le fichier de préconfiguration. Il est également possible de définir des volumes pour les images Incus ou le stockage des sauvegardes.
 
   <!--
   Documentation: https://linuxcontainers.org/incus/docs/main/howto/initialize/#configuration-format

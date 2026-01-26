@@ -161,15 +161,15 @@ content: |-
   ## Creating profiles in a project through preseed
   The Incus server preseed logic has been expanded to allow for profiles to be created in specific projects.
   -->
-  ## Création de profils dans un projet via un preseed
-  La logique de preseed d’Incus a été étendue pour permettre la création de profils dans des projets définis.
+  ## Création de profils dans un projet via une préconfiguration
+  La logique de préconfiguration d’Incus a été étendue pour permettre la création de profils dans des projets définis.
 
   <!--
   This is done through a new `project` key on the relevant `profile` entry.
   The project then needs to also be defined within the preseed.
   -->
   Pour ce faire, il suffit de définir la clef `project` dans l’entrée `profile` correspondante.
-  Le projet devra également être défini dans le preseed.
+  Le projet devra également être défini dans la préconfiguration.
 
   <!--
   Documentation: https://linuxcontainers.org/incus/docs/main/howto/initialize/#configuration-format
