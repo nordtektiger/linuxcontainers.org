@@ -282,8 +282,8 @@ content: |-
   The Incus server preseed logic has been extended to now include cluster groups.
   This allows configuring the default groups as well as defining or updating additional groups during initialization.
   -->
-  ## Définition des groupes dans un cluster via un preseed
-  La logique de preseed d’Incus a été étendue pour inclure les groupes dans les clusters.
+  ## Définition des groupes dans un cluster via une préconfiguration
+  La logique de préconfiguration d’Incus a été étendue pour inclure les groupes dans les clusters.
   Cela permet de configurer le groupe par défaut, ainsi que des groupes supplémentaires, durant l’initialisation.
 
       root@server01:~# cat seed.yaml 

@@ -266,8 +266,8 @@ content: |-
   ## Preseed of certificates
   An Incus server preseed can now include certificates.
   -->
-  ## Preseed de certificats
-  Les preseeds des serveurs Incus peuvent désormais inclure des certificats.
+  ## Préconfiguration de certificats
+  Les préconfigurations des serveurs Incus peuvent désormais inclure des certificats.
 
   <!--
   This looks like:

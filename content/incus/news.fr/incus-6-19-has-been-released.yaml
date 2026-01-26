@@ -64,7 +64,7 @@ content: |-
   <!--
   As it stands, only the runtime context is set. Incus doesn't yet interact with the filesystem context, nor does it handle virtual machines or shared volumes and resources.
   -->
-  En l’état, seul le contexte d’exécution est défini. Incus n’interagit pas pour le moment avec le contexte du système de fichiers, ne gère pas les machines virtueles ou encore les volumes et ressources partagés.
+  En l’état, seul le contexte d’exécution est défini. Incus n’interagit pas pour le moment avec le contexte du système de fichiers, ne gère pas les machines virtuelles ou encore les volumes et ressources partagés.
 
   <!--
   We'd encourage anyone with experience/interest in getting full SELinux support in Incus to try this out and work with us in extending our support!
